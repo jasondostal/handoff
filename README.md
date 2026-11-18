@@ -6,12 +6,7 @@
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT">
 </p>
 
-Send someone a link to a file or a folder. That's the whole app.
-
-I needed to get some paperwork to my banker, who doesn't have a secure way to receive it, and
-I needed my family to send me scanned documents without making an account anywhere. The tool I
-used for this before could do a hundred things, and I only ever wanted two of them. So this does
-the two.
+A lightweight, self-hosted file sharing app. Send someone a link to a file or a folder.
 
 - **Share a file.** They get a page with one Download button.
 - **Share a folder, view only.** They can browse it and download files one at a time or as a zip.

@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"handoff/internal/store"
+	"github.com/jasondostal/handoff/internal/store"
 )
 
 func (s *Server) publicRoutes(mux *http.ServeMux) {

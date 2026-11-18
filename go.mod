@@ -1,4 +1,4 @@
-module handoff
+module github.com/jasondostal/handoff
 
 go 1.26.0
 

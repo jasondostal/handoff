@@ -1,88 +1,192 @@
 # handoff
 
-Send someone a link to a file or a folder. That's it.
+<p>
+  <a href="https://github.com/jasondostal/handoff/actions/workflows/build.yml"><img src="https://img.shields.io/github/actions/workflow/status/jasondostal/handoff/build.yml?style=flat-square&label=build" alt="Build"></a>
+  <a href="https://github.com/jasondostal/handoff/releases"><img src="https://img.shields.io/github/v/release/jasondostal/handoff?style=flat-square" alt="Release"></a>
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT">
+</p>
 
-- **File link:** they download that one file.
-- **Folder link, view:** they browse the folder and download files or the whole thing as a zip.
-- **Folder link, upload:** they can also add files and subfolders. They can't delete or replace
-  anything; a file with a name that's already taken is saved as `name (2).ext`.
+Send someone a link to a file or a folder. That's the whole app.
 
-Every link has an expiry you can change at any time (1, 7, 30 or 90 days, a date, or never),
-an optional password, an upload allowance for upload links, and an activity log so you can see
-whether it was opened and what was downloaded or uploaded. Turn a link off and it stops working
-immediately.
+I needed to get some paperwork to my banker, who doesn't have a secure way to receive it, and
+I needed my family to send me scanned documents without making an account anywhere. The tool I
+used for this before could do a hundred things, and I only ever wanted two of them. So this does
+the two.
 
-People you send links to don't need an account. The link is the permission.
+- **Share a file.** They get a page with one Download button.
+- **Share a folder, view only.** They can browse it and download files one at a time or as a zip.
+- **Share a folder, with uploads.** They can also drop files in and make subfolders. They can't
+  delete or replace anything. If they upload a file whose name is already taken, it's saved next
+  to the old one as `name (2).ext`.
 
-One Go binary, SQLite, no JavaScript framework, no build step. Pages work without JavaScript;
-with it you get drag and drop, an upload progress bar and copy buttons.
+The people you send links to don't need an account or an app. The link is the permission. You
+can give each link an expiry (a day, a week, a month, a date, or never) and change it whenever
+you like. A link can also have a password, and upload links have a size allowance. Each link has
+an activity log, so you can see whether it was opened and what came and went. Turn a link off
+and it stops working right away.
+
+<p>
+  <img src="docs/phone-dropbox.png" width="250" alt="A family member's phone, after uploading two files to a shared folder">
+  &nbsp;
+  <img src="docs/phone-password.png" width="250" alt="A password-protected link asking for its password">
+  &nbsp;
+  <img src="docs/phone-folder.png" width="250" alt="A view-only folder link on a phone">
+</p>
+
+## What you see
+
+Everything lives in one folder on your server. The Files page is that folder: upload, make
+folders, open or download what's there, and press **Share…** on anything to make a link to just
+that item (and, for a folder, what's inside it).
+
+![The Files page](docs/admin-files.png)
+
+Making a link takes four choices: what they can do, when it expires, an optional password, and a
+note to yourself so you remember who it was for.
+
+![Making a link](docs/share-form.png)
+
+The Links page lists every link you've made. You can change an expiry right there, copy a link
+again, or turn it off.
+
+![The Links page](docs/links.png)
+
+Each link has its own page with the full history.
+
+![One link and its activity](docs/link-activity.png)
+
+Pages work without JavaScript. With it you also get drag and drop, an upload progress bar and copy
+buttons. Light and dark themes follow your system.
 
 ## Run it
 
-```sh
-docker run -d --name handoff \
-  -p 8080:8080 \
-  -v /srv/shared:/shares \
-  -v handoff-data:/data \
-  -e HANDOFF_BASE_URL=https://share.example.com \
-  -e HANDOFF_ADMIN_PASSWORD_HASH='<output of: docker run --rm -it handoff hash-password>' \
-  handoff
+```yaml
+services:
+  handoff:
+    image: ghcr.io/jasondostal/handoff:latest
+    container_name: handoff
+    restart: unless-stopped
+    user: "1000:1000"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./shares:/shares   # the shared folder
+      - ./data:/data       # the link database
+    environment:
+      - TZ=America/Chicago
+      - HANDOFF_BASE_URL=https://share.example.com
+      - HANDOFF_ADMIN_PASSWORD_HASH=${HANDOFF_ADMIN_PASSWORD_HASH}
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
 ```
 
-Then open `https://share.example.com/admin/`, find a file or folder, and press **Share…**.
+Make the two folders first (`mkdir shares data`) so they belong to you and not to root. Then make
+the password hash:
 
-Files go in the folder mounted at `/shares`, either by uploading them on the admin page or by
-putting them there any other way. Links can only point inside it.
+```sh
+docker run --rm -it ghcr.io/jasondostal/handoff hash-password
+```
 
-Put it behind a TLS-terminating reverse proxy. Links are bearer secrets; they must not travel
-over plain HTTP.
+Put the hash in a `.env` file next to the compose file (`HANDOFF_ADMIN_PASSWORD_HASH='$2a$10$...'`,
+single quotes so the `$` signs survive), then `docker compose up -d` and open
+`https://share.example.com/admin/`.
+
+Files you put in `./shares` by any other means (scp, Samba, a sync tool) show up too. Links can only
+ever point inside that folder.
+
+**Run it behind HTTPS.** A link is as good as a key, so it must never travel over plain HTTP. Any
+TLS-terminating reverse proxy works. If yours buffers request bodies, turn that off for this site so
+large uploads stream straight through (in nginx: `client_max_body_size 0;` and
+`proxy_request_buffering off;`).
+
+### Using your proxy's login instead of a password
+
+If a single sign-on proxy (Authentik, Authelia, oauth2-proxy and so on) already guards your
+services, let it guard `/admin` too, and leave the rest public so links work for everyone. Set
+`HANDOFF_ADMIN_PROXY_SECRET` to a long random string and have the proxy send it on `/admin` only.
+In nginx:
+
+```nginx
+location /admin {
+    # ...your SSO auth_request lines...
+    proxy_set_header X-Proxy-Auth "the-same-long-random-string";
+    proxy_pass http://handoff:8080;
+}
+
+location / {
+    proxy_set_header X-Proxy-Auth "";   # never let a visitor supply it
+    proxy_pass http://handoff:8080;
+}
+```
+
+You can use this and the password at the same time, or just one. With only the proxy secret set,
+the admin pages can't be reached any other way.
 
 ## Configuration
 
 | Variable | Default | |
 |---|---|---|
-| `HANDOFF_BASE_URL` | (required) | Public origin used to build links, e.g. `https://share.example.com` |
+| `HANDOFF_BASE_URL` | (required) | The public address links are built on, e.g. `https://share.example.com` |
+| `HANDOFF_ADMIN_PASSWORD_HASH` | | bcrypt hash that turns on the built-in admin sign-in. Make one with `handoff hash-password` |
+| `HANDOFF_ADMIN_PASSWORD` | | Plain-text password instead of a hash, for trying it out |
+| `HANDOFF_ADMIN_PROXY_SECRET` | | See [Using your proxy's login](#using-your-proxys-login-instead-of-a-password) |
+| `HANDOFF_TRUST_PROXY` | `false` | Take the visitor's IP for the activity log from `X-Real-IP` / `X-Forwarded-For`. Only turn on behind a proxy that sets them |
+| `HANDOFF_DEFAULT_UPLOAD_MB` | `1024` | The upload allowance preselected for new upload links |
+| `HANDOFF_OWNER` | | Your name, for the expired-link page: "Ask Sam for a new link" |
 | `HANDOFF_ROOT` | `/shares` | The shared folder |
 | `HANDOFF_DATA` | `/data` | Where `handoff.db` lives |
 | `HANDOFF_LISTEN` | `:8080` | |
-| `HANDOFF_ADMIN_PASSWORD_HASH` | | bcrypt hash; turns on the built-in admin sign-in. Make one with `handoff hash-password` |
-| `HANDOFF_ADMIN_PASSWORD` | | Plain-text alternative to the hash, for quick tests |
-| `HANDOFF_ADMIN_PROXY_SECRET` | | If your proxy already authenticates you (Authentik, Authelia, oauth2-proxy…), have it send this value in an `X-Proxy-Auth` header on `/admin` and strip that header everywhere else |
-| `HANDOFF_TRUST_PROXY` | `false` | Take the client IP for the activity log from `X-Real-IP` / `X-Forwarded-For` |
-| `HANDOFF_DEFAULT_UPLOAD_MB` | `1024` | Preselected allowance for new upload links |
-| `HANDOFF_OWNER` | | Name shown on expired-link pages ("Ask Sam for a new one") |
 
-At least one of the two admin options must be set.
+You need at least one of the password or the proxy secret, or nobody could make links.
 
-## Security model
+## How it keeps things safe
 
-- **Tokens** are 128 random bits. Whoever has the link has the access, so treat links like
-  passwords, and add a password to a link (sent some other way) for anything sensitive.
-- **Path containment** has two layers: request paths are rejected outright if any segment is `..`,
-  `.` or hidden, and all file access goes through Go's `os.Root`, which refuses anything,
-  including symlinks, that resolves outside the shared folder. Dotfiles are never listed,
-  served or zipped.
-- **Uploaded content never runs on this origin.** Every download is
-  `Content-Disposition: attachment` with `Content-Security-Policy: sandbox` and `nosniff`, and
-  HTML, SVG and other active types are sent as `application/octet-stream`.
-- **No overwrites, no deletes** from share links. Uploads stream straight to a temp file and are
-  hard-linked into place, which fails rather than replaces if the name exists.
-- **Upload allowance** per link is enforced while streaming, and claimed atomically in the
-  database so parallel uploads can't overshoot it.
-- **Passwords** on links are bcrypt; 10 wrong tries in 15 minutes locks the link for a while.
-  Changing a link's password signs out everyone who had unlocked it.
-- **CSRF**: cross-site POSTs are refused (Go's `http.CrossOriginProtection`), cookies are
-  `SameSite=Strict`, `HttpOnly`, and `Secure` behind HTTPS.
-- Pages send `no-store`, `noindex`, `Referrer-Policy: same-origin`, a strict CSP, and
-  `frame-ancestors 'none'`.
+This is a public web page that hands out files from your server, so it's built defensively. The
+short version: a link can reach exactly what you shared and nothing else, upload links can only add
+files, and nothing anyone uploads can run in a browser on your domain.
 
-What it doesn't do: encryption at rest (use an encrypted disk), virus scanning, resumable uploads
-for multi-gigabyte files over flaky connections, or per-recipient accounts.
+- **Links can't be guessed.** Each one carries 128 random bits. That also means whoever has a link
+  has the access, so treat links like passwords. For anything sensitive, add a password and send it
+  some other way (a text or a phone call).
+- **No wandering outside the share.** Every file operation goes through Go's `os.Root`, which the
+  operating system enforces: nothing that resolves outside the shared folder can be opened, symlinks
+  included. On top of that, paths containing `..` or hidden names are refused before they get that
+  far. Dotfiles are never listed, served or zipped.
+- **Uploaded files never run.** Downloads are sent as attachments with `nosniff` and a
+  `Content-Security-Policy: sandbox`, and anything that could carry script (HTML, SVG and the like)
+  is sent as plain bytes. In the admin pages you can open PDFs, pictures, text, audio and video in
+  the browser; everything else still only downloads.
+- **Upload links only add.** Files are written to a temporary name and then linked into place,
+  which fails instead of replacing anything that's already there. The upload allowance is checked
+  while the file streams in and claimed atomically, so two uploads at once can't go over it.
+- **Passwords** on links are stored as bcrypt hashes. Ten wrong tries in 15 minutes locks the link
+  for a while. Changing a link's password signs out everyone who had unlocked it.
+- **Forged form posts are refused** (Go's `http.CrossOriginProtection`), and cookies are
+  `SameSite=Strict`, `HttpOnly`, and `Secure` over HTTPS.
+- Every page is sent with `no-store`, `noindex`, `Referrer-Policy: same-origin`, a strict CSP, and
+  `frame-ancestors 'none'`, so links don't leak into other sites' logs or search engines.
+
+Found a hole? See [SECURITY.md](SECURITY.md).
+
+### What it doesn't do
+
+No encryption at rest (put the shared folder on an encrypted disk), no virus scanning, no resumable
+uploads for multi-gigabyte files over shaky connections, and no accounts for the people you share
+with. Renaming and moving files is done on the server for now, not in the app. Your reverse proxy's
+access log will contain full link URLs, so keep that log as private as the links.
 
 ## Develop
 
+It's one Go program with SQLite (pure Go, no cgo) and plain HTML templates, no JavaScript framework
+and no build step for the front end.
+
 ```sh
-./dev go test ./...      # runs the Go toolchain in Docker
+go test ./...            # or ./dev go test ./... to use Go inside Docker
 docker build -t handoff .
 ```
 

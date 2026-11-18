@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"handoff/internal/store"
+	"github.com/jasondostal/handoff/internal/store"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -38,8 +38,8 @@ type Config struct {
 	AdminPasswordHash string // bcrypt hash; enables the built-in login page
 	AdminProxySecret  string // a reverse proxy that has already authenticated the owner sends this in X-Proxy-Auth
 
-	TrustProxy         bool  // take the client IP from X-Real-IP / X-Forwarded-For
-	DefaultUploadLimit int64 // preselected allowance for new upload links
+	TrustProxy         bool   // take the client IP from X-Real-IP / X-Forwarded-For
+	DefaultUploadLimit int64  // preselected allowance for new upload links
 	Owner              string // optional: "Ask <Owner> for a new link"
 	Version            string
 }

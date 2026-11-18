@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"handoff/internal/store"
+	"github.com/jasondostal/handoff/internal/store"
 )
 
 type env struct {

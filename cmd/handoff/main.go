@@ -16,8 +16,8 @@ import (
 	"syscall"
 	"time"
 
-	"handoff/internal/server"
-	"handoff/internal/store"
+	"github.com/jasondostal/handoff/internal/server"
+	"github.com/jasondostal/handoff/internal/store"
 
 	"golang.org/x/term"
 )

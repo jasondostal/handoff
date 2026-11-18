@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"handoff/internal/store"
+	"github.com/jasondostal/handoff/internal/store"
 )
 
 const adminTTL = 12 * time.Hour

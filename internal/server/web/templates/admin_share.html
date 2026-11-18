@@ -1,0 +1,33 @@
+{{define "title"}}Share {{.Name}} · handoff{{end}}
+{{define "bodyclass"}}admin{{end}}
+{{define "content"}}
+<section class="card narrow">
+  <p><a href="{{.Parent}}">← Back</a></p>
+  <h1>Share {{if .IsDir}}📁 {{end}}{{.Name}}</h1>
+  <form method="post" action="/admin/links" class="stack">
+    <input type="hidden" name="path" value="{{.Rel}}">
+    {{if .IsDir}}
+    <fieldset class="choice">
+      <legend>What can they do?</legend>
+      <label><input type="radio" name="mode" value="read" checked> <span><strong>View &amp; download</strong><br><span class="muted small">They can see and download what's in this folder.</span></span></label>
+      <label><input type="radio" name="mode" value="write"> <span><strong>View, download &amp; upload</strong><br><span class="muted small">They can also add files and folders. They can't delete or replace anything.</span></span></label>
+    </fieldset>
+    <label class="upload-limit">Upload allowance
+      <select name="upload_limit">
+        {{range .Limits}}<option value="{{.Bytes}}" {{if eq .Bytes $.DefaultLimit}}selected{{end}}>{{.Label}}</option>{{end}}
+      </select>
+    </label>
+    {{else}}
+    <p class="muted">A link to this one file ({{bytes .Size}}). Download only.</p>
+    {{end}}
+    <label>Expires {{template "expiry" (dict "Default" "7d" "Current" nil "Auto" false)}}</label>
+    <label>Password <span class="muted small">(optional; send it separately, by text or phone)</span>
+      <input type="text" name="password" autocomplete="off" spellcheck="false">
+    </label>
+    <label>Note for yourself <span class="muted small">(only you see this)</span>
+      <input type="text" name="label" placeholder="e.g. Bank, 2025 tax docs" maxlength="200">
+    </label>
+    <button class="primary big">Create link</button>
+  </form>
+</section>
+{{end}}

@@ -1,0 +1,46 @@
+{{define "base"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>{{block "title" .}}handoff{{end}}</title>
+<link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/static/app.css?v={{version}}">
+<script src="/static/app.js?v={{version}}" defer></script>
+</head>
+<body class="{{block "bodyclass" .}}public{{end}}">
+{{if .Nav}}
+<header class="topbar">
+  <a class="brand" href="/admin/files/"><img src="/static/icon.svg" alt=""> handoff</a>
+  <nav>
+    <a href="/admin/files/" {{if eq .Nav "files"}}aria-current="page"{{end}}>Files</a>
+    <a href="/admin/links" {{if eq .Nav "links"}}aria-current="page"{{end}}>Links</a>
+  </nav>
+  <form method="post" action="/admin/logout" class="logout"><button class="link">Sign out</button></form>
+</header>
+{{end}}
+<main>
+{{template "content" .}}
+</main>
+</body>
+</html>{{end}}
+
+{{define "crumbs"}}{{if gt (len .) 1}}<nav class="crumbs" aria-label="Folder path">{{range $i, $c := .}}{{if $i}}<span class="sep">/</span>{{end}}<a href="{{$c.URL}}">{{$c.Name}}</a>{{end}}</nav>{{end}}{{end}}
+
+{{/* Expiry picker. Args: Prefix (form id suffix), Current (*time.Time or nil), Default ("7d"...), Auto (bool: submit on change) */}}
+{{define "expiry"}}
+<span class="expiry{{if .Auto}} auto{{end}}">
+  <select name="expiry" class="expiry-choice" aria-label="Link expires">
+    {{$d := .Default}}
+    <option value="1d" {{if eq $d "1d"}}selected{{end}}>{{if .Auto}}1 day from now{{else}}In 1 day{{end}}</option>
+    <option value="7d" {{if eq $d "7d"}}selected{{end}}>{{if .Auto}}7 days from now{{else}}In 7 days{{end}}</option>
+    <option value="30d" {{if eq $d "30d"}}selected{{end}}>{{if .Auto}}30 days from now{{else}}In 30 days{{end}}</option>
+    <option value="90d" {{if eq $d "90d"}}selected{{end}}>{{if .Auto}}90 days from now{{else}}In 90 days{{end}}</option>
+    <option value="date" {{if eq $d "date"}}selected{{end}}>On a date…</option>
+    <option value="never" {{if eq $d "never"}}selected{{end}}>Never</option>
+  </select>
+  <input type="date" name="expiry_date" class="expiry-date" value="{{isoDate .Current}}" aria-label="Expiry date" {{if ne $d "date"}}hidden{{end}}>
+  {{if .Auto}}<button class="small expiry-save">Save</button>{{end}}
+</span>
+{{end}}

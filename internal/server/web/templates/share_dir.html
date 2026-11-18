@@ -1,0 +1,53 @@
+{{define "title"}}{{.Here}}{{end}}
+{{define "content"}}
+<section class="card wide">
+  {{template "crumbs" .Crumbs}}
+  <div class="headrow">
+    <h1>{{.Here}}</h1>
+    {{if .Entries}}<a class="button" href="{{.Base}}/zip/{{.RelEsc}}" download>Download all (.zip)</a>{{end}}
+  </div>
+  <p class="muted small">{{if .CanWrite}}You can add files here.{{else}}View and download only.{{end}} {{expires .Link.ExpiresAt}}.</p>
+
+  {{if .Uploaded}}<p class="ok">✓ Uploaded {{.Uploaded}} file{{if ne .Uploaded 1}}s{{end}}. Thank you!</p>{{end}}
+
+  {{if .CanWrite}}
+  <form class="dropzone" method="post" enctype="multipart/form-data" action="{{.Base}}/upload/{{.RelEsc}}" data-upload>
+    <p class="droptext"><strong>Drop files here</strong> or</p>
+    <label class="button primary big filepick">Choose files to upload
+      <input type="file" name="files" multiple required>
+    </label>
+    <noscript><button class="button">Upload</button></noscript>
+    <div class="progress" hidden><div class="bar"></div><span class="ptext"></span></div>
+    <p class="uperr alert" hidden></p>
+    <p class="muted small">Up to {{bytes .Remaining}} more. Files with the same name as one already here are kept side by side, never replaced.</p>
+  </form>
+  <details class="mkdir">
+    <summary>New folder</summary>
+    <form method="post" action="{{.Base}}/mkdir/{{.RelEsc}}" class="inline">
+      <input name="name" placeholder="Folder name" required maxlength="200">
+      <button>Create</button>
+    </form>
+  </details>
+  {{end}}
+
+  {{if .Entries}}
+  <table class="files">
+    <thead><tr><th>Name</th><th class="num">Size</th><th class="num hide-sm">Modified</th></tr></thead>
+    <tbody>
+    {{range .Entries}}
+      <tr>
+      {{if .IsDir}}
+        <td><a class="dir" href="{{$.Base}}/d/{{esc .Rel}}">📁 {{.Name}}</a></td><td class="num muted">—</td>
+      {{else}}
+        <td><a href="{{$.Base}}/f/{{esc .Rel}}" download>{{.Name}}</a></td><td class="num">{{bytes .Size}}</td>
+      {{end}}
+        <td class="num muted hide-sm">{{date .ModTime}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="empty">{{if .CanWrite}}Nothing here yet.{{else}}This folder is empty.{{end}}</p>
+  {{end}}
+</section>
+{{end}}

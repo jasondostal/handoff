@@ -1,0 +1,7 @@
+{{define "title"}}Link no longer available{{end}}
+{{define "content"}}
+<section class="card center">
+  <h1>{{if eq .Status "expired"}}This link has expired{{else}}This link has been turned off{{end}}</h1>
+  <p>Ask {{if owner}}{{owner}}{{else}}the person who sent it{{end}} for a new one.</p>
+</section>
+{{end}}

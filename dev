@@ -1,0 +1,8 @@
+#!/bin/sh
+# Run the Go toolchain in Docker (CORTEX has no host Go install).
+#   ./dev go test ./...
+exec docker run --rm \
+  -v "$(cd "$(dirname "$0")" && pwd)":/src -w /src \
+  -v handoff-gomod:/go/pkg/mod -v handoff-gocache:/root/.cache/go-build \
+  -e CGO_ENABLED=0 -e GOFLAGS=-buildvcs=false \
+  golang:1.26-bookworm "$@"

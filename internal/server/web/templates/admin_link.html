@@ -1,0 +1,55 @@
+{{define "title"}}{{.L.Name}} · handoff{{end}}
+{{define "bodyclass"}}admin{{end}}
+{{define "content"}}
+{{$l := .L}}
+<section class="card">
+  <p><a href="/admin/links">← All links</a></p>
+  {{if .New}}<p class="ok">Link created. Copy it and send it.{{if $l.PasswordHash}} Send the password some other way.{{end}}</p>{{end}}
+  <h1>{{if eq $l.Kind "dir"}}📁 {{end}}{{$l.Name}}</h1>
+  <p class="muted">{{$l.Shown}} · {{if eq $l.Kind "file"}}file, download only{{else if eq $l.Mode "write"}}folder, view + upload ({{bytes $l.UploadedBytes}} of {{bytes $l.UploadLimit}} used){{else}}folder, view + download{{end}}{{if $l.PasswordHash}} · 🔒 password{{end}}</p>
+
+  {{if eq $l.State "revoked"}}
+    <p class="alert">This link is turned off.</p>
+  {{else}}
+  <div class="linkbox">
+    <input type="text" readonly value="{{$l.URL}}" aria-label="Link" class="linkurl">
+    <button class="primary" data-copy="{{$l.URL}}">Copy</button>
+  </div>
+  {{if eq $l.State "expired"}}<p class="alert">Expired. Pick a new expiry below to turn it back on.</p>{{end}}
+
+  <form method="post" action="/admin/links/{{$l.ID}}/expiry" class="row">
+    <span>Expires:</span>
+    {{template "expiry" (dict "Default" (or (and $l.ExpiresAt "date") "never") "Current" $l.ExpiresAt "Auto" true)}}
+    <span class="muted small">{{expires $l.ExpiresAt}}</span>
+  </form>
+  {{end}}
+
+  <form method="post" action="/admin/links/{{$l.ID}}/label" class="row">
+    <label>Note <input name="label" value="{{$l.Label}}" maxlength="200" placeholder="Only you see this"></label>
+    <button class="small">Save</button>
+  </form>
+
+  <div class="row">
+    {{if ne $l.State "revoked"}}
+    <form method="post" action="/admin/links/{{$l.ID}}/revoke" data-confirm="Turn this link off? Anyone using it will be shut out."><button class="danger">Turn off link</button></form>
+    {{end}}
+    <form method="post" action="/admin/links/{{$l.ID}}/delete" data-confirm="Delete this link and its history? The files stay."><button class="danger link">Delete link &amp; history</button></form>
+  </div>
+</section>
+
+<section class="card">
+  <h2>Activity</h2>
+  {{if .Events}}
+  <table class="events small">
+    <thead><tr><th>When</th><th>What</th><th class="hide-sm">From</th></tr></thead>
+    <tbody>
+    {{range .Events}}
+      <tr><td class="nowrap">{{.At.Local.Format "Jan 2 3:04 PM"}}</td>
+      <td><span class="ev ev-{{.Kind}}">{{.Kind}}</span> {{.Path}}{{if .Bytes}} <span class="muted">({{bytes .Bytes}})</span>{{end}}</td>
+      <td class="hide-sm muted" title="{{.UA}}">{{.IP}}</td></tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}<p class="muted">Nobody has opened it yet.</p>{{end}}
+</section>
+{{end}}

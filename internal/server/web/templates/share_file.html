@@ -1,0 +1,10 @@
+{{define "title"}}{{.Name}}{{end}}
+{{define "content"}}
+<section class="card center">
+  <div class="fileicon" aria-hidden="true">{{template "fileglyph"}}</div>
+  <h1 class="filename">{{.Name}}</h1>
+  <p class="muted">{{bytes .Size}} · {{expires .Link.ExpiresAt}}</p>
+  <a class="button primary big" href="{{.DownloadURL}}" download>Download</a>
+</section>
+{{end}}
+{{define "fileglyph"}}<svg viewBox="0 0 24 24" width="48" height="48"><path d="M6 2h8l6 6v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M14 2v6h6" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>{{end}}

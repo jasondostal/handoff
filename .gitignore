@@ -1,0 +1,6 @@
+/handoff
+/data/
+/shares/
+*.db
+*.db-shm
+*.db-wal

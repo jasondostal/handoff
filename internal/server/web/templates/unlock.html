@@ -1,0 +1,12 @@
+{{define "title"}}Password needed{{end}}
+{{define "content"}}
+<section class="card narrow">
+  <h1>This link has a password</h1>
+  <p class="muted">You should have gotten it separately from the link, by text or phone call.</p>
+  {{if .Error}}<p class="alert">{{.Error}}</p>{{end}}
+  <form method="post" action="/s/{{.Token}}/unlock" class="stack">
+    <label>Password <input type="password" name="password" autocomplete="current-password" required autofocus></label>
+    <button class="primary big">Open</button>
+  </form>
+</section>
+{{end}}

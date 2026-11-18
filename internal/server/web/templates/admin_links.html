@@ -1,0 +1,41 @@
+{{define "title"}}Links · handoff{{end}}
+{{define "bodyclass"}}admin{{end}}
+{{define "content"}}
+<section class="card wide">
+  <h1>Links</h1>
+  {{if .Links}}
+  <table class="links">
+    <thead><tr><th>Link</th><th>Access</th><th>Expires</th><th class="num hide-sm">Activity</th><th></th></tr></thead>
+    <tbody>
+    {{range .Links}}
+    <tr class="state-{{.State}}">
+      <td>
+        <a href="/admin/links/{{.ID}}"><strong>{{if .Label}}{{.Label}}{{else}}{{.Name}}{{end}}</strong></a>
+        <div class="muted small">{{if eq .Kind "dir"}}📁 {{end}}{{.Shown}}{{if .PasswordHash}} · 🔒 password{{end}}</div>
+      </td>
+      <td>{{if eq .Kind "file"}}File{{else if eq .Mode "write"}}<span class="tag write">Upload</span>{{else}}<span class="tag">View</span>{{end}}</td>
+      <td>
+        {{if eq .State "revoked"}}<span class="tag off">Turned off</span>
+        {{else}}
+        <div class="muted small">{{expires .ExpiresAt}}</div>
+        <form method="post" action="/admin/links/{{.ID}}/expiry">
+          <input type="hidden" name="back" value="list">
+          {{template "expiry" (dict "Default" (or (and .ExpiresAt "date") "never") "Current" .ExpiresAt "Auto" true)}}
+        </form>
+        {{end}}
+      </td>
+      <td class="num hide-sm small">{{.Views}} views · {{.Downloads}} dl<br><span class="muted">{{when .LastAccessAt}}</span></td>
+      <td class="actions">
+        {{if ne .State "revoked"}}<button class="small" data-copy="{{.URL}}">Copy link</button>
+        <form method="post" action="/admin/links/{{.ID}}/revoke" data-confirm="Turn this link off? Anyone using it will be shut out.">
+          <input type="hidden" name="back" value="list"><button class="small danger">Turn off</button></form>{{end}}
+      </td>
+    </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="empty">No links yet. Go to <a href="/admin/files/">Files</a> and press Share… on a file or folder.</p>
+  {{end}}
+</section>
+{{end}}

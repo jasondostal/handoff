@@ -1,0 +1,48 @@
+{{define "title"}}Files · handoff{{end}}
+{{define "bodyclass"}}admin{{end}}
+{{define "content"}}
+<section class="card wide">
+  {{template "crumbs" .Crumbs}}
+  <div class="headrow">
+    <h1>{{.Here}}</h1>
+    <a class="button primary" href="/admin/share?path={{.Rel}}">Share this folder…</a>
+  </div>
+  {{if .Msg}}<p class="ok">{{.Msg}}</p>{{end}}
+
+  <div class="toolbar">
+    <form method="post" enctype="multipart/form-data" action="/admin/upload/{{.RelEsc}}" data-upload class="dropzone compact">
+      <label class="button filepick">Upload files<input type="file" name="files" multiple required></label>
+      <span class="droptext muted small">or drop them here</span>
+      <noscript><button>Upload</button></noscript>
+      <div class="progress" hidden><div class="bar"></div><span class="ptext"></span></div>
+      <p class="uperr alert" hidden></p>
+    </form>
+    <form method="post" action="/admin/mkdir/{{.RelEsc}}" class="inline">
+      <input name="name" placeholder="New folder" required maxlength="200">
+      <button>Create</button>
+    </form>
+  </div>
+
+  {{if .Entries}}
+  <table class="files">
+    <thead><tr><th>Name</th><th class="num">Size</th><th class="num hide-sm">Modified</th><th></th></tr></thead>
+    <tbody>
+    {{range .Entries}}
+      <tr>
+        <td>{{if .IsDir}}<a class="dir" href="/admin/files/{{esc .Rel}}/">📁 {{.Name}}</a>{{else}}{{.Name}}{{end}}
+          {{with index $.Active .Rel}}<a class="badge" href="/admin/links" title="Active links">{{.}} link{{if ne . 1}}s{{end}}</a>{{end}}</td>
+        <td class="num">{{if .IsDir}}—{{else}}{{bytes .Size}}{{end}}</td>
+        <td class="num muted hide-sm">{{date .ModTime}}</td>
+        <td class="actions">
+          <a class="button small" href="/admin/share?path={{.Rel}}">Share…</a>
+          <form method="post" action="/admin/delete/{{esc .Rel}}" data-confirm="Delete {{.Name}}? This can't be undone."><button class="small danger">Delete</button></form>
+        </td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{else}}
+  <p class="empty">Empty folder. Upload something, or share it as a drop box for others to fill.</p>
+  {{end}}
+</section>
+{{end}}

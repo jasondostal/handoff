@@ -21,8 +21,8 @@ func (s *Server) publicRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /s/{token}/f/{path...}", s.shareDownload)
 	mux.HandleFunc("GET /s/{token}/zip/{path...}", s.shareZip)
 	mux.HandleFunc("POST /s/{token}/upload/{path...}", s.shareUpload)
-	mux.HandleFunc("POST /s/{token}/mkdir/{path...}", s.shareMkdir)
-	mux.HandleFunc("POST /s/{token}/unlock", s.shareUnlock)
+	mux.HandleFunc("POST /s/{token}/mkdir/{path...}", smallBody(s.shareMkdir))
+	mux.HandleFunc("POST /s/{token}/unlock", smallBody(s.shareUnlock))
 }
 
 const unlockTTL = 12 * time.Hour
@@ -230,7 +230,7 @@ func (s *Server) shareDownload(w http.ResponseWriter, r *http.Request) {
 	if rg := r.Header.Get("Range"); rg == "" || strings.HasPrefix(rg, "bytes=0-") {
 		s.record(r, l, "download", logPath, fi.Size())
 	}
-	serveAttachment(w, r, fi.Name(), fi.ModTime(), f)
+	serveFile(w, r, fi.Name(), fi.ModTime(), f, false)
 }
 
 // Types the browser may be told about. Everything else is
@@ -246,23 +246,57 @@ var safeTypes = map[string]string{
 	".ppt": "application/vnd.ms-powerpoint", ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 }
 
-func attachment(name string) string {
-	if v := mime.FormatMediaType("attachment", map[string]string{"filename": name}); v != "" {
+func disposition(kind, name string) string {
+	if v := mime.FormatMediaType(kind, map[string]string{"filename": name}); v != "" {
 		return v
 	}
-	return "attachment"
+	return kind
 }
 
-func serveAttachment(w http.ResponseWriter, r *http.Request, name string, mod time.Time, rs io.ReadSeeker) {
-	ct, ok := safeTypes[strings.ToLower(path.Ext(name))]
+// Types the owner can open in the browser from the admin pages instead of
+// downloading. Never HTML, SVG or anything else that can carry script.
+var previewTypes = map[string]bool{
+	".pdf": true, ".jpg": true, ".jpeg": true, ".png": true, ".gif": true, ".webp": true, ".heic": true,
+	".txt": true, ".csv": true, ".mp4": true, ".mov": true, ".mp3": true, ".m4a": true,
+}
+
+func canPreview(name string) bool { return previewTypes[strings.ToLower(path.Ext(name))] }
+
+// serveFile sends a file as a download, or inline when inline is set and
+// the type is on the preview list. Either way the type comes from the
+// extension (with nosniff), so a file can never be read as a web page.
+func serveFile(w http.ResponseWriter, r *http.Request, name string, mod time.Time, rs io.ReadSeeker, inline bool) {
+	ext := strings.ToLower(path.Ext(name))
+	ct, ok := safeTypes[ext]
 	if !ok {
 		ct = "application/octet-stream"
 	}
 	h := w.Header()
 	h.Set("Content-Type", ct)
-	h.Set("Content-Disposition", attachment(name))
-	h.Set("Content-Security-Policy", "sandbox; default-src 'none'")
+	switch {
+	case inline && ext == ".pdf":
+		// Browsers' PDF viewers refuse to run inside a CSP sandbox. The
+		// type is pinned to application/pdf, so there is no page to guard.
+		h.Set("Content-Disposition", disposition("inline", name))
+		h.Del("Content-Security-Policy")
+	case inline && previewTypes[ext]:
+		h.Set("Content-Disposition", disposition("inline", name))
+		h.Set("Content-Security-Policy", "sandbox; default-src 'none'; img-src 'self'; media-src 'self'; style-src 'unsafe-inline'")
+	default:
+		h.Set("Content-Disposition", disposition("attachment", name))
+		h.Set("Content-Security-Policy", "sandbox; default-src 'none'")
+	}
 	http.ServeContent(w, r, name, mod, rs)
+}
+
+// smallBody caps the request body of plain form posts. Only the upload
+// handlers take big bodies; without this a multipart post to any other
+// form could spool gigabytes to a temp file before being turned away.
+func smallBody(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
+		h(w, r)
+	}
 }
 
 func (s *Server) shareZip(w http.ResponseWriter, r *http.Request) {
@@ -289,7 +323,7 @@ func (s *Server) shareZip(w http.ResponseWriter, r *http.Request) {
 		name = path.Base(rel)
 	}
 	w.Header().Set("Content-Type", "application/zip")
-	w.Header().Set("Content-Disposition", attachment(name+".zip"))
+	w.Header().Set("Content-Disposition", disposition("attachment", name+".zip"))
 	s.record(r, l, "zip", rel, 0)
 	if err := writeZip(w, sub, rel); err != nil {
 		s.log.Warn("zip", "err", err)

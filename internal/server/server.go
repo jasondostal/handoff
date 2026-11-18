@@ -147,6 +147,7 @@ func (s *Server) loadTemplates() error {
 		"when":    s.when,
 		"expires": s.expiresText,
 		"esc":     escapePath,
+		"preview": canPreview,
 		"isoDate": func(v any) string {
 			if t, ok := v.(*time.Time); ok && t != nil {
 				return t.Local().Format("2006-01-02")

@@ -560,3 +560,66 @@ func TestAllPagesRender(t *testing.T) {
 		}
 	}
 }
+
+func TestAdminOpensFiles(t *testing.T) {
+	e := setup(t)
+	auth := []string{"X-Proxy-Auth", proxySecret}
+	if r := e.get("/admin/view/top.pdf"); r.code == 200 {
+		t.Fatal("view without admin auth")
+	}
+	r := e.get("/admin/view/top.pdf", auth...)
+	if r.code != 200 || r.body != "%PDF-fake" || !strings.HasPrefix(r.h.Get("Content-Disposition"), "inline") ||
+		r.h.Get("Content-Type") != "application/pdf" || r.h.Get("X-Content-Type-Options") != "nosniff" {
+		t.Fatalf("pdf view: %d %q %v", r.code, r.body, r.h)
+	}
+	r = e.get("/admin/view/docs/a.txt", auth...)
+	if r.code != 200 || !strings.HasPrefix(r.h.Get("Content-Disposition"), "inline") ||
+		!strings.HasPrefix(r.h.Get("Content-Security-Policy"), "sandbox") {
+		t.Fatalf("txt view: %d %v", r.code, r.h)
+	}
+	// HTML is never shown inline, even to the owner.
+	r = e.get("/admin/view/docs/page.html", auth...)
+	if !strings.HasPrefix(r.h.Get("Content-Disposition"), "attachment") || r.h.Get("Content-Type") != "application/octet-stream" ||
+		!strings.HasPrefix(r.h.Get("Content-Security-Policy"), "sandbox") {
+		t.Fatalf("html view: %v", r.h)
+	}
+	r = e.get("/admin/download/top.pdf", auth...)
+	if !strings.HasPrefix(r.h.Get("Content-Disposition"), "attachment") {
+		t.Fatalf("download: %v", r.h)
+	}
+	for _, p := range []string{"/admin/view/docs/.secret", "/admin/view/docs/escape.txt", "/admin/view/docs",
+		"/admin/view/", "/admin/download/docs/escape-dir/outside.txt"} {
+		if r := e.get(p, auth...); r.code != 404 {
+			t.Fatalf("%s: %d", p, r.code)
+		}
+	}
+	if r := e.get("/admin/files/docs/", auth...); !strings.Contains(r.body, `href="/admin/view/docs/a.txt"`) ||
+		!strings.Contains(r.body, `href="/admin/download/docs/page.html"`) {
+		t.Fatalf("files page links missing:\n%s", r.body)
+	}
+}
+
+// A big multipart body sent to a plain form handler is cut off instead of
+// being spooled to disk.
+func TestFormBodiesAreCapped(t *testing.T) {
+	e := setup(t)
+	w := e.link(store.Link{Path: "inbox", Kind: store.KindDir, Mode: store.ModeWrite, UploadLimit: 1 << 30})
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	fw, _ := mw.CreateFormFile("filler", "big.bin")
+	fw.Write(bytes.Repeat([]byte("x"), 2<<20))
+	mw.WriteField("name", "made-it")
+	mw.Close()
+	req, _ := http.NewRequest("POST", e.ts.URL+"/s/"+w.Token+"/mkdir/", &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	if r := e.do(req); r.code == 303 {
+		t.Fatal("oversized mkdir form was accepted")
+	}
+	if _, err := os.Stat(filepath.Join(e.root, "inbox", "made-it")); err == nil {
+		t.Fatal("folder was made from an oversized body")
+	}
+	// A normal one still works.
+	if r := e.post("/s/"+w.Token+"/mkdir/", url.Values{"name": {"made-it"}}); r.code != 303 {
+		t.Fatalf("normal mkdir: %d", r.code)
+	}
+}

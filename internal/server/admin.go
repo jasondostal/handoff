@@ -20,14 +20,21 @@ const adminTTL = 12 * time.Hour
 
 func (s *Server) adminRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /admin/login", s.loginPage)
-	mux.HandleFunc("POST /admin/login", s.login)
+	mux.HandleFunc("POST /admin/login", smallBody(s.login))
 	mux.HandleFunc("POST /admin/logout", s.logout)
 
-	a := func(pattern string, h http.HandlerFunc) { mux.Handle(pattern, s.requireAdmin(h)) }
+	a := func(pattern string, h http.HandlerFunc) {
+		if strings.HasPrefix(pattern, "POST ") && pattern != "POST /admin/upload/{path...}" {
+			h = smallBody(h)
+		}
+		mux.Handle(pattern, s.requireAdmin(h))
+	}
 	a("GET /admin/{$}", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/files/", http.StatusSeeOther)
 	})
 	a("GET /admin/files/{path...}", s.adminFiles)
+	a("GET /admin/view/{path...}", s.adminOpen(true))
+	a("GET /admin/download/{path...}", s.adminOpen(false))
 	a("POST /admin/upload/{path...}", s.adminUpload)
 	a("POST /admin/mkdir/{path...}", s.adminMkdir)
 	a("POST /admin/delete/{path...}", s.adminDelete)
@@ -165,6 +172,30 @@ func (s *Server) adminFiles(w http.ResponseWriter, r *http.Request) {
 		"Entries": entries, "Active": active, "Here": adminCrumbs(rel)[len(adminCrumbs(rel))-1].Name,
 		"Msg": r.URL.Query().Get("msg"),
 	})
+}
+
+// adminOpen serves one file to the owner: inline for previewable types
+// when view is set, otherwise as a download.
+func (s *Server) adminOpen(view bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		rel, err := cleanRel(r.PathValue("path"))
+		if err != nil || rel == "" {
+			s.fail(w, http.StatusNotFound, "No such file.")
+			return
+		}
+		f, err := s.root.Open(rel)
+		if err != nil {
+			s.fail(w, http.StatusNotFound, "No such file.")
+			return
+		}
+		defer f.Close()
+		fi, err := f.Stat()
+		if err != nil || !fi.Mode().IsRegular() {
+			s.fail(w, http.StatusNotFound, "No such file.")
+			return
+		}
+		serveFile(w, r, fi.Name(), fi.ModTime(), f, view)
+	}
 }
 
 func adminDirURL(rel, msg string) string {

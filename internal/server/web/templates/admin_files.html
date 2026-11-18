@@ -29,11 +29,12 @@
     <tbody>
     {{range .Entries}}
       <tr>
-        <td>{{if .IsDir}}<a class="dir" href="/admin/files/{{esc .Rel}}/">📁 {{.Name}}</a>{{else}}{{.Name}}{{end}}
+        <td>{{if .IsDir}}<a class="dir" href="/admin/files/{{esc .Rel}}/">📁 {{.Name}}</a>{{else}}<a class="file" href="/admin/{{if preview .Name}}view{{else}}download{{end}}/{{esc .Rel}}"{{if preview .Name}} target="_blank" rel="noopener"{{end}}>{{.Name}}</a>{{end}}
           {{with index $.Active .Rel}}<a class="badge" href="/admin/links" title="Active links">{{.}} link{{if ne . 1}}s{{end}}</a>{{end}}</td>
         <td class="num">{{if .IsDir}}—{{else}}{{bytes .Size}}{{end}}</td>
         <td class="num muted hide-sm">{{date .ModTime}}</td>
         <td class="actions">
+          {{if not .IsDir}}<a class="button small" href="/admin/download/{{esc .Rel}}" title="Download">↓</a>{{end}}
           <a class="button small" href="/admin/share?path={{.Rel}}">Share…</a>
           <form method="post" action="/admin/delete/{{esc .Rel}}" data-confirm="Delete {{.Name}}? This can't be undone."><button class="small danger">Delete</button></form>
         </td>

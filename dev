@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run the Go toolchain in Docker (CORTEX has no host Go install).
+# Run the Go toolchain in Docker, for machines without Go installed.
 #   ./dev go test ./...
 exec docker run --rm \
   -v "$(cd "$(dirname "$0")" && pwd)":/src -w /src \

@@ -10,7 +10,7 @@ ARG TARGETARCH=amd64
 # Cross-compile on the build machine; pure Go, so no emulation needed.
 RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X main.version=${VERSION}" -o /handoff ./cmd/handoff
 
-FROM alpine:3.23@sha256:469c9ea410b9215eaee7976ba6c0639039b444be8e5d638f7abbada189971eb2
+FROM alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 RUN apk add --no-cache ca-certificates tzdata \
  && adduser -D -u 1000 handoff \
  && mkdir /data /shares && chown handoff:handoff /data /shares
